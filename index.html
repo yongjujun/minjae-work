@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>김민재 일해라</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a spreadsheet window. The snake is drawn as a "selected range"; food is a conditionally formatted cell. */
+:root{
+  --bg:#e9ecef; --sheet:#ffffff; --chrome:#f3f5f4; --line:#d6dbd8; --head:#eef1ef;
+  --fg:#1f2a24; --muted:#66736c; --brand:#1d6b44; --brand-ink:#ffffff;
+  --sel:rgba(29,107,68,.16); --sel-edge:#1d6b44; --food:#dff2e6; --food-ink:#0f5a34;
+  --warn:#b45309; --danger:#b42318; --warn-bg:#fff4e0;
+  --sans:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141816; --sheet:#1c211e; --chrome:#222826; --line:#323a36; --head:#262d29;
+  --fg:#e4ebe7; --muted:#93a19a; --brand:#3a9a68; --brand-ink:#0d1410;
+  --sel:rgba(88,190,134,.2); --sel-edge:#5cc08a; --food:#21402f; --food-ink:#9be3b9;
+  --warn:#f0a44b; --danger:#ff7a6e; --warn-bg:#3a2a12; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141816; --sheet:#1c211e; --chrome:#222826; --line:#323a36; --head:#262d29;
+  --fg:#e4ebe7; --muted:#93a19a; --brand:#3a9a68; --brand-ink:#0d1410;
+  --sel:rgba(88,190,134,.2); --sel-edge:#5cc08a; --food:#21402f; --food-ink:#9be3b9;
+  --warn:#f0a44b; --danger:#ff7a6e; --warn-bg:#3a2a12; color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:13px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px;box-sizing:border-box}
+.win{max-width:980px;margin:0 auto;background:var(--sheet);border:1px solid var(--line);border-radius:6px;overflow:hidden;display:flex;flex-direction:column}
+.titlebar{background:var(--brand);color:var(--brand-ink);display:flex;align-items:center;gap:10px;padding:7px 12px;font-size:12.5px}
+.titlebar .doc{font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.titlebar .saved{opacity:.8;font-size:11.5px;white-space:nowrap}
+.menus{display:flex;gap:2px;background:var(--chrome);border-bottom:1px solid var(--line);padding:4px 8px;overflow-x:auto}
+.menus span{padding:4px 10px;border-radius:4px;color:var(--muted);white-space:nowrap}
+.menus span.on{color:var(--brand);font-weight:700;box-shadow:inset 0 -2px 0 var(--brand);border-radius:0}
+.fbar{display:flex;align-items:stretch;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px}
+.namebox{width:64px;flex:none;padding:5px 8px;border-right:1px solid var(--line);font-variant-numeric:tabular-nums}
+.fx{padding:5px 10px;color:var(--muted);border-right:1px solid var(--line);font-style:italic}
+.formula{padding:5px 10px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.gridwrap{position:relative;touch-action:none;user-select:none;-webkit-user-select:none}
+.grid{display:grid;grid-template-columns:30px repeat(var(--cols),minmax(0,1fr));font-variant-numeric:tabular-nums}
+.grid div{height:24px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);font-size:11.5px;line-height:23px;padding:0 4px;overflow:hidden;white-space:nowrap;text-align:right;box-sizing:border-box;position:relative}
+.grid .h{background:var(--head);color:var(--muted);text-align:center;font-size:11px;padding:0}
+.grid .h.hot{background:var(--sel);color:var(--sel-edge);font-weight:600}
+.grid .lbl{text-align:left}
+.grid .c.s{background:var(--sel)}
+.grid .c.hd{outline:2px solid var(--sel-edge);outline-offset:-2px;z-index:1}
+.grid .c.f{background:var(--food);color:var(--food-ink);font-weight:700}
+.grid .c.err{color:var(--danger);font-weight:700;text-align:center}
+
+.note{position:absolute;right:12px;top:12px;max-width:min(280px,80%);background:var(--warn-bg);border:1px solid var(--warn);color:var(--fg);padding:10px 12px;border-radius:3px;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.18);z-index:5}
+.note b{display:block;font-size:11px;color:var(--warn);margin-bottom:3px;letter-spacing:.02em}
+.note::before{content:"";position:absolute;left:-7px;top:12px;border:6px solid transparent;border-right-color:var(--warn)}
+
+.dlg{position:absolute;inset:0;display:grid;place-items:center;background:color-mix(in srgb,var(--sheet) 55%,transparent);z-index:6;padding:16px}
+.dlg .box{background:var(--sheet);border:1px solid var(--line);border-radius:6px;box-shadow:0 18px 40px rgba(0,0,0,.25);width:min(380px,100%);overflow:hidden}
+.dlg .bh{background:var(--chrome);border-bottom:1px solid var(--line);padding:8px 12px;font-size:12px;color:var(--muted)}
+.dlg .bb{padding:16px;display:flex;flex-direction:column;gap:10px}
+.dlg h2{margin:0;font-size:20px;text-wrap:balance}
+.dlg h2 code{font-family:var(--mono);color:var(--danger)}
+.dlg p{margin:0;line-height:1.6;color:var(--muted)}
+.dlg .keys{font-family:var(--mono);font-size:12px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;color:var(--fg)}
+.dlg .keys kbd{background:var(--head);border:1px solid var(--line);border-radius:3px;padding:0 5px;font-family:var(--mono)}
+.dlg .row{display:flex;gap:8px;justify-content:flex-end}
+button{font-family:var(--sans);font-size:13px;border-radius:4px;border:1px solid var(--line);background:var(--chrome);color:var(--fg);padding:7px 14px;cursor:pointer}
+button.pri{background:var(--brand);border-color:var(--brand);color:var(--brand-ink);font-weight:700}
+button:focus-visible{outline:2px solid var(--sel-edge);outline-offset:2px}
+
+.tabs{display:flex;align-items:stretch;gap:0;background:var(--chrome);border-top:1px solid var(--line);font-size:12px;overflow-x:auto}
+.tabs button{border:0;border-right:1px solid var(--line);border-radius:0;background:transparent;color:var(--muted);padding:6px 14px;white-space:nowrap}
+.tabs button.on{background:var(--sheet);color:var(--brand);font-weight:700;box-shadow:inset 0 -2px 0 var(--brand)}
+.status{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:center;background:var(--brand);color:var(--brand-ink);padding:5px 12px;font-size:12px;font-variant-numeric:tabular-nums}
+.status .st{flex:1;min-width:150px;display:flex;align-items:center;gap:8px}
+.meter{width:70px;height:6px;background:color-mix(in srgb,var(--brand-ink) 25%,transparent);border-radius:3px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--brand-ink)}
+.status.alert{background:var(--warn);color:#fff}
+.status.alert .meter i{background:#fff}
+.hint{max-width:980px;margin:10px auto 0;color:var(--muted);font-size:12px;line-height:1.6}
+.hint kbd{font-family:var(--mono);background:var(--sheet);border:1px solid var(--line);border-radius:3px;padding:0 4px}
+.shake{animation:sh .35s}
+@keyframes sh{20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+@media (prefers-reduced-motion:reduce){.shake{animation:none}}
+@media (max-width:560px){.grid div{font-size:9.5px;padding:0 2px}.grid{grid-template-columns:22px repeat(var(--cols),minmax(0,1fr))}.saved{display:none}}
+</style>
+</head>
+<body>
+
+<div class="win" id="win">
+  <div class="titlebar"><span class="doc">3분기_매출분석_최종_진짜최종(2).xlsx</span><span class="saved" id="saved">모든 변경 내용 저장됨</span></div>
+  <div class="menus"><span>파일</span><span class="on">홈</span><span>삽입</span><span>수식</span><span>데이터</span><span>검토</span><span>보기</span></div>
+  <div class="fbar"><div class="namebox" id="namebox">A1</div><div class="fx">fx</div><div class="formula" id="formula">=김민재.일해라()</div></div>
+  <div class="gridwrap" id="gw">
+    <div class="grid" id="grid"></div>
+    <div class="note" id="note" hidden><b>팀장 · 메모</b><span id="noteText">김민재 일해라.</span></div>
+    <div class="dlg" id="dlg">
+      <div class="box">
+        <div class="bh">Microsoft 업무 시스템</div>
+        <div class="bb">
+          <h2 id="dTitle">김민재 일해라</h2>
+          <p id="dBody">셀 선택 영역처럼 생긴 뱀을 움직여 초록 셀을 먹으세요. 상태 표시줄에 팀장님이 다가온다는 신호가 뜨면 보고서 탭으로 숨으면 됩니다.</p>
+          <div class="keys" id="dKeys">
+            <kbd>방향키 / WASD</kbd><span>선택 영역 이동 (모바일: 스와이프)</span>
+            <kbd>Esc / Tab</kbd><span>보고서 화면으로 숨기 · 복귀</span>
+            <kbd>Space</kbd><span>시작 · 일시정지</span>
+          </div>
+          <div class="row"><button class="pri" id="startBtn">업무 시작</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="tabs" role="tablist">
+    <button id="tabPlay" class="on" role="tab">Sheet1</button>
+    <button id="tabHide" role="tab">3분기 보고</button>
+    <button tabindex="-1">피벗_요약</button>
+  </div>
+  <div class="status" id="status">
+    <div class="st"><span id="stText">준비</span><span class="meter"><i id="meter"></i></span></div>
+    <span>개수: <b id="sLen">3</b></span>
+    <span>합계: <b id="sScore">0</b></span>
+    <span>최대값: <b id="sBest">0</b></span>
+  </div>
+</div>
+<p class="hint">상태 표시줄이 주황색으로 바뀌면 팀장님이 오는 중입니다. 도착할 때 Sheet1이 보이면 들킵니다. 숨어서 검사를 통과하면 보너스 +50. 벽에 부딪히면 <kbd>#REF!</kbd>, 내 몸에 부딪히면 <kbd>#순환참조</kbd>.</p>
+
+<script>
+(()=>{
+const COLS=16, ROWS=18;
+const LETTERS="ABCDEFGHIJKLMNOP";
+const grid=document.getElementById('grid');
+grid.style.setProperty('--cols',COLS);
+const $=id=>document.getElementById(id);
+
+// fake spreadsheet data
+const labels=["서울본점","강남점","판교점","분당점","수원점","인천점","부평점","대전점","세종점","청주점","천안점","대구점","부산점","해운대점","광주점","울산점","제주점","합계"];
+let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+const fake=[];
+for(let r=0;r<ROWS;r++){fake.push([]);for(let c=0;c<COLS;c++){
+  fake[r].push(c===0?labels[r]: r===0&&false?"":(Math.round(rnd()*9000+800)).toLocaleString('ko-KR'));}}
+
+// build cells
+const cells=[];const colHeads=[];const rowHeads=[];
+const corner=document.createElement('div');corner.className='h';grid.appendChild(corner);
+for(let c=0;c<COLS;c++){const d=document.createElement('div');d.className='h';d.textContent=LETTERS[c];grid.appendChild(d);colHeads.push(d)}
+for(let r=0;r<ROWS;r++){
+  const rh=document.createElement('div');rh.className='h';rh.textContent=r+1;grid.appendChild(rh);rowHeads.push(rh);
+  cells.push([]);
+  for(let c=0;c<COLS;c++){const d=document.createElement('div');d.className='c'+(c===0?' lbl':'');d.textContent=fake[r][c];grid.appendChild(d);cells[r].push(d)}
+}
+
+// state
+let best=0;try{best=+localStorage.getItem('mj_best')||0}catch(e){}
+$('sBest').textContent=best.toLocaleString('ko-KR');
+let snake,dir,queue,food,score,running=false,hidden=false,over=false,tickMs,acc=0,last=0,eaten=0;
+let boss={phase:'away',t:0,next:0,dur:0,feint:false};
+
+function reset(){
+  snake=[{x:5,y:8},{x:4,y:8},{x:3,y:8}];dir={x:1,y:0};queue=[];score=0;eaten=0;tickMs=170;over=false;
+  boss={phase:'away',t:0,next:7000+Math.random()*6000,dur:0,feint:false};
+  placeFood();clearErr();draw();setStatus();
+}
+function placeFood(){
+  let p;do{p={x:1+Math.floor(Math.random()*(COLS-1)),y:Math.floor(Math.random()*ROWS)}}while(snake.some(s=>s.x===p.x&&s.y===p.y));
+  food=p;
+}
+function clearErr(){for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const d=cells[r][c];if(d.classList.contains('err')){d.classList.remove('err');d.textContent=fake[r][c]}}}
+
+function draw(){
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)cells[r][c].classList.remove('s','hd','f');
+  colHeads.forEach(h=>h.classList.remove('hot'));rowHeads.forEach(h=>h.classList.remove('hot'));
+  if(hidden){$('namebox').textContent='B18';$('formula').textContent='=SUM(B1:B17)';return}
+  snake.forEach((s,i)=>{const d=cells[s.y]?.[s.x];if(d){d.classList.add('s');if(i===0)d.classList.add('hd')}});
+  const f=cells[food.y][food.x];f.classList.add('f');
+  const h=snake[0];
+  if(colHeads[h.x])colHeads[h.x].classList.add('hot');if(rowHeads[h.y])rowHeads[h.y].classList.add('hot');
+  $('namebox').textContent=(LETTERS[h.x]||'?')+(h.y+1);
+  $('formula').textContent=running?`=김민재.일해라(${LETTERS[food.x]}${food.y+1})`:'=김민재.일해라()';
+}
+
+function step(){
+  if(queue.length){const n=queue.shift();if(n.x!==-dir.x||n.y!==-dir.y)dir=n}
+  const h=snake[0];const nh={x:h.x+dir.x,y:h.y+dir.y};
+  if(nh.x<0||nh.x>=COLS||nh.y<0||nh.y>=ROWS)return crash('#REF!','벽에 부딪혔습니다',h);
+  const grow=nh.x===food.x&&nh.y===food.y;
+  const body=grow?snake:snake.slice(0,-1);
+  if(body.some(s=>s.x===nh.x&&s.y===nh.y))return crash('#순환참조','자기 자신을 참조했습니다',nh);
+  snake.unshift(nh);
+  if(grow){eaten++;score+=10*(1+Math.floor(eaten/5));tickMs=Math.max(75,170-eaten*4);placeFood();flashSaved('자동 저장 중…')}
+  else snake.pop();
+  draw();setStatus();
+}
+
+function crash(code,msg,at){
+  running=false;over=true;
+  if(at&&cells[at.y]&&cells[at.y][at.x]){const d=cells[at.y][at.x];d.classList.add('err');d.textContent=code}
+  draw();
+  if(at&&cells[at.y]&&cells[at.y][at.x])cells[at.y][at.x].textContent=code;
+  endDialog(`<code>${code}</code>`,`${msg}. 이번 땡땡이 합계는 ${score.toLocaleString('ko-KR')}점입니다.`);
+}
+function caught(){
+  running=false;over=true;
+  $('note').hidden=false;$('noteText').textContent='김민재 씨. 지금 뭐 해요? 김민재 일해라.';
+  $('win').classList.remove('shake');void $('win').offsetWidth;$('win').classList.add('shake');
+  setTimeout(()=>endDialog('팀장님께 들켰습니다',`Sheet1을 띄워 둔 채로 딱 걸렸습니다. 땡땡이 합계 ${score.toLocaleString('ko-KR')}점.`),900);
+}
+function endDialog(title,body){
+  if(score>best){best=score;try{localStorage.setItem('mj_best',best)}catch(e){};body+=' 최대값 갱신!'}
+  $('sBest').textContent=best.toLocaleString('ko-KR');
+  $('dTitle').innerHTML=title;$('dBody').textContent=body;$('dKeys').hidden=true;$('startBtn').textContent='다시 땡땡이';
+  $('dlg').hidden=false;$('startBtn').focus();setStatus();
+}
+
+// boss logic
+function bossTick(dt){
+  boss.t+=dt;
+  if(boss.phase==='away'&&boss.t>=boss.next){boss.phase='coming';boss.t=0;boss.dur=Math.max(1400,2800-eaten*60);boss.feint=Math.random()<.28}
+  else if(boss.phase==='coming'){
+    if(boss.feint&&boss.t>=boss.dur*.6){boss.phase='away';boss.t=0;boss.next=5000+Math.random()*7000;flashStatus('팀장님 탕비실로 감');}
+    else if(boss.t>=boss.dur){
+      if(!hidden)return caught();
+      boss.phase='here';boss.t=0;$('note').hidden=false;$('noteText').textContent=pick(['보고서 잘 되고 있네요. 수고해요.','3분기 숫자 오늘 중으로 부탁해요.','민재 씨 요즘 열심히 하네?']);
+    }
+  }else if(boss.phase==='here'){
+    if(!hidden)return caught();
+    if(boss.t>=2200){boss.phase='away';boss.t=0;boss.next=6000+Math.random()*8000-eaten*120;$('note').hidden=true;score+=50;flashStatus('검사 통과 +50')}
+  }
+  setStatus();
+}
+let flashMsg='',flashT=0;
+function flashStatus(m){flashMsg=m;flashT=1600}
+function flashSaved(m){$('saved').textContent=m;clearTimeout(flashSaved.t);flashSaved.t=setTimeout(()=>$('saved').textContent='모든 변경 내용 저장됨',700)}
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+function setStatus(){
+  const st=$('status');let txt='준비',pct=0,alert=false;
+  if(over)txt='오류';
+  else if(!running&&!hidden)txt='일시정지';
+  if(running||hidden){
+    if(boss.phase==='coming'){alert=true;pct=Math.min(100,boss.t/boss.dur*100);txt='팀장님 접근 중';}
+    else if(boss.phase==='here'){alert=true;pct=100;txt='팀장님 뒤에 있음';}
+    else if(flashT>0)txt=flashMsg;
+    else txt=hidden?'보고서 작성 중':'팀장님 자리에 계심';
+  }
+  st.classList.toggle('alert',alert);$('stText').textContent=txt;$('meter').style.width=pct+'%';
+  $('sLen').textContent=snake.length;$('sScore').textContent=score.toLocaleString('ko-KR');
+}
+
+function loop(ts){
+  const dt=last?Math.min(100,ts-last):0;last=ts;
+  if(!over&&(running||hidden)&&$('dlg').hidden){
+    if(flashT>0)flashT-=dt;
+    bossTick(dt);
+    if(running&&!hidden&&!over){acc+=dt;while(acc>=tickMs&&running){acc-=tickMs;step()}}
+  }
+  requestAnimationFrame(loop);
+}
+
+function setHidden(v){
+  if(over)return;hidden=v;
+  $('tabPlay').classList.toggle('on',!v);$('tabHide').classList.toggle('on',v);
+  if(!v&&boss.phase!=='here')$('note').hidden=true;
+  acc=0;draw();setStatus();
+  if(!v&&boss.phase==='here')caught();
+}
+function start(){
+  $('dlg').hidden=true;$('note').hidden=true;
+  if(over||!snake)reset();
+  running=true;hidden=false;$('tabPlay').classList.add('on');$('tabHide').classList.remove('on');acc=0;draw();setStatus();
+}
+function togglePause(){
+  if(!$('dlg').hidden){start();return}
+  if(hidden)return;running=!running;setStatus();draw();
+}
+
+const DIRS={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0],W:[0,-1],S:[0,1],A:[-1,0],D:[1,0]};
+function turn(x,y){if(!running||hidden)return;const lastD=queue[queue.length-1]||dir;if(lastD.x===x&&lastD.y===y)return;if(queue.length<3)queue.push({x,y})}
+addEventListener('keydown',e=>{
+  if(e.key==='Escape'||e.key==='Tab'||e.key==='`'){e.preventDefault();if(!over&&$('dlg').hidden)setHidden(!hidden);return}
+  if(e.key===' '){e.preventDefault();togglePause();return}
+  const d=DIRS[e.key];if(d){e.preventDefault();turn(d[0],d[1])}
+});
+// swipe
+let tx=0,ty=0;
+$('gw').addEventListener('touchstart',e=>{const t=e.touches[0];tx=t.clientX;ty=t.clientY},{passive:true});
+$('gw').addEventListener('touchmove',e=>{const t=e.touches[0];const dx=t.clientX-tx,dy=t.clientY-ty;
+  if(Math.max(Math.abs(dx),Math.abs(dy))>24){if(Math.abs(dx)>Math.abs(dy))turn(Math.sign(dx),0);else turn(0,Math.sign(dy));tx=t.clientX;ty=t.clientY}},{passive:true});
+$('startBtn').addEventListener('click',start);
+$('tabHide').addEventListener('click',()=>{if($('dlg').hidden)setHidden(true)});
+$('tabPlay').addEventListener('click',()=>{if($('dlg').hidden)setHidden(false)});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&running){running=false;setStatus()}});
+
+reset();requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
